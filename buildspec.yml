@@ -1,0 +1,31 @@
+version: 0.2
+env:
+  variables:
+    DOTNET_ROOT: /root/.dotnet
+
+phases:
+  install:
+    runtime-versions:
+            dotnet: 3.1
+    commands:
+      - dotnet tool install -g "Amazon.Lambda.Tools"
+      - dotnet restore CelebrityRekognition.sln
+      - yum install libc6-dev libgdiplus libx11-dev
+  build:
+    commands:
+      - dotnet lambda package-ci --template serverless-template.yml --s3-bucket $BUCKETNAME --output-template template-export.yml
+
+reports:
+    CREPortalTestReports:
+        file-format: VisualStudioTrx
+        files:
+            - '**/*'
+        base-directory: './testresults'
+
+cache:
+    paths:
+        - '~/.nuget/packages'
+
+artifacts:
+  files:
+    - template-export.yml

@@ -1,0 +1,45 @@
+﻿@model IEnumerable<Amazon.Rekognition.Model.Celebrity>
+@{
+    ViewData["Title"] = "CelebRekognition";
+}
+
+<div class="text-center">
+    <h4 class="display-4">Celebrity Image Rekognition</h4>
+    <p>using <a href="https://docs.aws.amazon.com/cli/latest/reference/rekognition/recognize-celebrities.html">AWS Rekognition API</a></p>
+</div>
+
+<div class="form-group text-center" align="center">
+    <form method="post" enctype="multipart/form-data" asp-controller="Home" asp-action="UploadImage" class="form-inline">
+        <div class="form-group text-center" align="center">
+            <input type="file" name="file" accept=".jpeg, .png, .jpg" required/>
+            <input type="submit" value="Upload"/>
+        </div>
+    </form>
+</div>
+
+@if (Model != null)
+{
+    if (Model.Any())
+    {
+        <div><b>Celebrities Recognized</b></div>
+
+        foreach (var celebrity in Model)
+        {
+            <li>@celebrity.Name</li>
+            @if (celebrity.Urls.Any())
+            {
+                <ul>
+                    @foreach (var url in celebrity.Urls)
+                    {
+                        <li><a href="https://@url"></a>@url</li>
+                    }
+                </ul>
+            }
+        }
+    }
+    else
+    {
+        <div><b>No Celebrities are recognized in the picture :-(</b></div>
+    }
+}
+

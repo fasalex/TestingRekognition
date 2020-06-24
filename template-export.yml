@@ -1,0 +1,143 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CF Template for createing resources for CelebrityRekognition
+Parameters:
+  S3BUCKETNAME:
+    Type: String
+    Default: celebrity-rekognition-with-aspnet-core
+  Environment:
+    Description: Environment where the code runs (Staging or Production)
+    Type: String
+    Default: Staging
+Resources:
+  AspNetCoreFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: 'CelebrityRekognition::CelebrityRekognition.LambdaEntryPoint::FunctionHandlerAsync'
+      Runtime: dotnetcore3.1
+      MemorySize: 3008
+      Timeout: 300
+      Role:
+        Fn::GetAtt:
+        - LambdaExecutionRole
+        - Arn
+      Code:
+        S3Bucket: codepipeline-fot-artifacts
+        S3Key: AspNetCoreFunction-Code-637286098178414458-637286098284145654.zip
+  CelebRekServerlessRestApi:
+    Type: "AWS::ApiGateway::RestApi"
+    Properties:
+      Name: "celeb-rek-portal-rest-api"
+      Description: "Celebrity rekognition Portal Rest API Gateway"
+      BinaryMediaTypes:
+      - 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      - 'multipart/form-data'
+  RootMethod:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      HttpMethod: ANY
+      ResourceId: !GetAtt CelebRekServerlessRestApi.RootResourceId
+      RestApiId: !Ref CelebRekServerlessRestApi
+      AuthorizationType: NONE
+      RequestModels:
+        multipart/form-data: !Ref CelebRekApiGatewayModel
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub >-
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AspNetCoreFunction.Arn}/invocations
+  ProxyResource:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref CelebRekServerlessRestApi
+      ParentId: !GetAtt
+      - CelebRekServerlessRestApi
+      - RootResourceId
+      PathPart: '{proxy+}'
+  ProxyMethod:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      RestApiId: !Ref CelebRekServerlessRestApi
+      ResourceId: !Ref ProxyResource
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      RequestModels:
+        multipart/form-data: !Ref CelebRekApiGatewayModel
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub >-
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AspNetCoreFunction.Arn}/invocations
+  CelebRekServerlessRestApiProdStage:
+    Type: 'AWS::ApiGateway::Stage'
+    Properties:
+      DeploymentId: !Ref CelebRekServerlessRestApiDeployment
+      RestApiId: !Ref CelebRekServerlessRestApi
+      StageName: Prod
+  CelebRekServerlessRestApiDeployment:
+    Type: 'AWS::ApiGateway::Deployment'
+    Properties:
+      RestApiId: !Ref CelebRekServerlessRestApi
+      Description: 'RestApi deployment of CelebRek Portal'
+      StageName: Stage
+  CelebRekAspNetCoreFunctionProxyResourcePermissionProd:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      Principal: apigateway.amazonaws.com
+      FunctionName: !Ref AspNetCoreFunction
+      SourceArn: !Sub
+      - >-
+        arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${__ApiId__}/${__Stage__}/*/*
+      - __Stage__: '*'
+        __ApiId__: !Ref CelebRekServerlessRestApi
+  CelebRekAspNetCoreFunctionRootResourcePermissionProd:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      Principal: apigateway.amazonaws.com
+      FunctionName: !Ref AspNetCoreFunction
+      SourceArn: !Sub
+      - >-
+        arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${__ApiId__}/${__Stage__}/*/
+      - __Stage__: '*'
+        __ApiId__: !Ref CelebRekServerlessRestApi
+  CelebRekApiGatewayModel:
+    Type: 'AWS::ApiGateway::Model'
+    Properties:
+      ContentType: multipart/form-data
+      Description: Model for form data upload
+      Name: CelebRekMultipartModel
+      RestApiId: !Ref CelebRekServerlessRestApi
+      Schema: {"$schema": "http://json-schema.org/draft-04/schema#", "title": "MediaFileUpload", "type": "object", "properties": {"file": {"type": "string"}}}
+  LambdaExecutionRole:
+    Description: Creating service role in IAM for AWS Lambda
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: 'lambda-execution-role'
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+            - apigateway.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonRekognitionFullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess'
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - lambda:*
+            Effect: Allow
+            Resource: !Sub 'arn:aws:lambda:eu-west-1:${AWS::AccountId}:function:*'
+          Version: '2012-10-17'
+        PolicyName: CelebRekLambdaAccess
+Outputs:
+  CelebRekApiGatewayInvokeURL:
+    Value: !Sub "https://${CelebRekServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+  CelebRekPortalArn:
+    Value: !GetAtt "AspNetCoreFunction.Arn"
+...

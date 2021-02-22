@@ -252,6 +252,3 @@ Once finished, deploy to AWS via cloudformation.
 </code>
 
 Once the deployment finishes, you can go to the stack and get the url for the application. 
-
-- Summary
-The code can be found at https://github.com/fasalex/amplify-image-rekognition

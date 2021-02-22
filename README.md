@@ -14,14 +14,23 @@ Need AWS account for running the application (it uses the rekognition api).
 Using dotnet core templates, create a Web project named CelebrityRekognition.
 
 Add AWS.Rekognition package to identify the images.
-<code>    dotnet new web --name CelebrityRekognition</code>
-<code>    dotnet add package AWSSDK.rekognition</code>
+<code>    
+	
+	dotnet new web --name CelebrityRekognition
+	
+</code>
+<code>    
+	
+	dotnet add package AWSSDK.rekognition
+	
+</code>
 
 Once the project is created, add a LamdbaEntryPoint to the project for the AWS Lambda handler. 
 
 As we use the mutlitpart/form-data to transfer the file, we register the content type so that the api gateway treats it as binary data.
 
 <code>
+	
     public class LambdaEntryPoint : APIGatewayProxyFunction
     {
         protected override void Init(IWebHostBuilder builder)
@@ -30,22 +39,26 @@ As we use the mutlitpart/form-data to transfer the file, we register the content
             builder.UseStartup<Startup>();
         }
     }
+    
 </code>
 
 Add the form for uploading the image in the index page. 
 
 <code>
+	
     <form method="post" enctype="multipart/form-data" asp-controller="Home" asp-action="UploadImage" class="form-inline">
         <div class="form-group text-center" align="center">
             <input type="file" name="file" accept=".jpeg, .png, .jpg" required/>
             <input type="submit" value="Upload"/>
         </div>
     </form>
+    
 </code>
 
 Add an action to the home controller to handle the image data. 
 
 <code>
+	
 	[HttpPost]
 	public async Task<IActionResult> UploadImage(IFormFile file)
 	{
@@ -64,6 +77,7 @@ Add an action to the home controller to handle the image data.
 		RecognizeCelebritiesResponse recognizeCelebritiesResponse = await rekognitionClient.RecognizeCelebritiesAsync(recognizeCelebritiesRequest);
 		return View("Index", recognizeCelebritiesResponse.CelebrityFaces);
 	}
+	
 </code>
 
 Run the application locally and test. 
